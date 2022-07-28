@@ -24,12 +24,14 @@ namespace Mono.Linker
 
 		readonly LinkContext _context;
 		readonly Dictionary<ICustomAttributeProvider, Dictionary<int, Suppression>> _suppressions;
+		readonly Dictionary<ICustomAttributeProvider, Dictionary<int, MessageOrigin>> _xml_attributes_origins;
 		HashSet<AssemblyDefinition> InitializedAssemblies { get; }
 
 		public UnconditionalSuppressMessageAttributeState (LinkContext context)
 		{
 			_context = context;
 			_suppressions = new Dictionary<ICustomAttributeProvider, Dictionary<int, Suppression>> ();
+			_xml_attributes_origins = new Dictionary<ICustomAttributeProvider, Dictionary<int, MessageOrigin>> ();
 			InitializedAssemblies = new HashSet<AssemblyDefinition> ();
 		}
 
@@ -101,7 +103,12 @@ namespace Mono.Linker
 					if (IsSuppressedOnElement (id, warningOriginMember, out info))
 						return true;
 
-					warningOriginMember = warningOriginMember.DeclaringType;
+
+					if (warningOriginMember is MethodDefinition method && method.TryGetProperty (out var property) && property != null) {
+						warningOriginMember = property;
+					} else {
+						warningOriginMember = warningOriginMember.DeclaringType;
+					}
 				}
 			}
 
@@ -306,6 +313,29 @@ namespace Mono.Linker
 		{
 			return typeRef.Name == "UnconditionalSuppressMessageAttribute" &&
 				typeRef.Namespace == "System.Diagnostics.CodeAnalysis";
+		}
+
+		public void ProcessXMLAttributes (ICustomAttributeProvider provider, CustomAttribute[] attributes, MessageOrigin origin)
+		{
+			foreach(var attribute in attributes) {
+				if (!TypeRefHasUnconditionalSuppressions (attribute.Constructor.DeclaringType))
+					continue;
+
+				if (!TryDecodeSuppressMessageAttributeData (attribute, out var info))
+					continue;
+
+				var origins = new Dictionary<int, MessageOrigin> ();
+				origins[info.Id] = origin;
+				_xml_attributes_origins.TryAdd (provider, origins);
+			}
+		}
+
+		public bool TryGetXMLLocation(ICustomAttributeProvider provider, int id, out MessageOrigin origin)
+		{
+			origin = default;
+			if (_xml_attributes_origins.TryGetValue (provider, out var origins) && origins.TryGetValue (id, out origin))
+				return true;
+			return false;
 		}
 	}
 }

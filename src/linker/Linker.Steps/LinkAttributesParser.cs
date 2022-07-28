@@ -573,8 +573,10 @@ namespace Mono.Linker.Steps
 		{
 			Debug.Assert (_attributeInfo != null);
 			var attributes = ProcessAttributes (nav, provider);
-			if (attributes != null)
+			if (attributes != null) {
+				_context.Suppressions.ProcessXMLAttributes (provider, attributes, GetMessageOriginForPosition(nav));
 				_attributeInfo.AddCustomAttributes (provider, attributes);
+			}
 		}
 	}
 }
