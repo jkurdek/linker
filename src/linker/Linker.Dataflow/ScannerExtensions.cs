@@ -39,6 +39,45 @@ namespace Mono.Linker.Dataflow
 			}
 			return branchTargets;
 		}
+
+		// Identifies leaders - first instructions in each basic block
+		public static HashSet<int> GetLeaders (this MethodBody methodBody)
+		{
+			var leaders = new HashSet<int> ();
+
+			foreach (Instruction operation in methodBody.Instructions) {
+
+				// first instruction is a leader
+				if (leaders.Count == 0)
+					leaders.Add (operation.Offset);
+
+				// targets of control flow instructions are leaders
+				if (operation.OpCode.IsControlFlowInstruction ()) {
+					var jumpTargets = operation.GetJumpTargets ();
+
+					foreach (var target in jumpTargets)
+						leaders.Add (target.Offset);
+
+					// operation following control flow instruction is a leader
+					if (operation.Next != null) leaders.Add (operation.Next.Offset);
+				}
+			}
+
+			return leaders;
+		}
+
+		public static IEnumerable<Instruction> GetJumpTargets (this Instruction operation)
+		{
+			Object value = operation.Operand;
+			if (value is Instruction inst)
+				return new Instruction[1] { inst };
+
+			if (value is Instruction[] instructions) {
+				return instructions;
+			}
+
+			return Array.Empty<Instruction> ();
+		}
 	}
 
 }
