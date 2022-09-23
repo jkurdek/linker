@@ -37,6 +37,11 @@ namespace ILLink.Shared.TrimAnalysis
 			Size = size;
 			ElementType = elementType;
 			IndexValues = new Dictionary<int, ValueBasicBlockPair> ();
+
+			for(var i = 0; i < size.AsConstInt(); i++) {
+				ValueBasicBlockPair pair = new ValueBasicBlockPair (new MultiValue(), -1);
+				IndexValues.Add(i, pair);
+			}
 		}
 
 		public TypeReference ElementType { get; }
@@ -79,7 +84,9 @@ namespace ILLink.Shared.TrimAnalysis
 		{
 			var newValue = new ArrayValue (Size.DeepCopy (), ElementType);
 			foreach (var kvp in IndexValues) {
-				newValue.IndexValues.Add (kvp.Key, new ValueBasicBlockPair (kvp.Value.Value.Clone (), kvp.Value.BasicBlockIndex));
+				var result = MultiValueLattice.Meet (newValue.IndexValues[kvp.Key].Value, kvp.Value.Value.Clone ());
+				newValue.IndexValues[kvp.Key] = new ValueBasicBlockPair (result, kvp.Value.BasicBlockIndex);
+				//newValue.IndexValues.Add (kvp.Key, new ValueBasicBlockPair (kvp.Value.Value.Clone (), kvp.Value.BasicBlockIndex));
 			}
 
 			return newValue;
